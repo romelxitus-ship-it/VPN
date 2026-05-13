@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NexVPN — Conexão Global Segura</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<style>
+:root {
+  --bg:#000000; --bg2:#000000;
+  --orange:#ff6b3d; --orange2:#e85a2a;
+  --orange3:#ff6b3d; --orange4:#ff4d1a;
+  --dim:#1a0e00; --text:#f0d5aa; --muted:#c47a45;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;min-height:100vh;overflow-x:hidden;}
+html::-webkit-scrollbar{width:8px;}
+html::-webkit-scrollbar-track{background:#000000;}
+html::-webkit-scrollbar-thumb{background:linear-gradient(180deg,#ff6b3d,#ff4d1a);border-radius:4px;}
+html::-webkit-scrollbar-thumb:hover{background:#ff6b3d;box-shadow:0 0 8px #ff6b3d;}
+body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;}
+
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(255,107,61,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,107,61,.03) 1px,transparent 1px);
+  background-size:50px 50px;pointer-events:none;z-index:0;
+}
+body::after{
+  content:'';position:fixed;top:-2px;left:0;width:100%;height:1px;
+  background:linear-gradient(90deg,transparent,var(--orange3),transparent);
+  animation:scanline 8s linear infinite;opacity:.35;z-index:1;pointer-events:none;
+}
+@keyframes scanline{0%{top:-2px}100%{top:100vh}}
+
+header{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  padding:18px 40px;display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(180deg,rgba(0,0,0,.98) 60%,transparent);
+  border-bottom:1px solid rgba(255,107,61,.1);
+}
+.logo{
+  display:flex;align-items:center;gap:8px;
+  font-family:'Orbitron',monospace;font-weight:900;font-size:1.5rem;letter-spacing:5px;
+}
+.logo-text{
+  background:linear-gradient(90deg,var(--orange3),var(--orange4));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  filter:drop-shadow(0 0 14px rgba(255,107,61,.5));
+}
+.logo-emoji{
+  font-size:1.4rem;
+  -webkit-text-fill-color:initial;
+  filter:drop-shadow(0 0 8px rgba(255,107,61,.6));
+  animation:float 3s ease-in-out infinite;
+}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+
+.hstatus{display:flex;align-items:center;gap:8px;font-size:.95rem;letter-spacing:2px;color:#ffffff;text-transform:uppercase;}
+.hsdot{width:7px;height:7px;border-radius:50%;background:var(--orange);box-shadow:0 0 8px var(--orange);animation:pdot 2s infinite;}
+@keyframes pdot{0%,100%{opacity:1}50%{opacity:.2}}
+
+.hero{position:relative;z-index:2;padding:110px 20px 30px;text-align:center;}
+.hero-badge{
+  display:inline-block;border:1px solid rgba(255,107,61,.35);padding:4px 22px;
+  font-size:.9rem;letter-spacing:4px;color:var(--orange3);text-transform:uppercase;
+  background:rgba(255,107,61,.06);clip-path:polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%);
+  margin-bottom:18px;
+}
+.hero h1{font-family:'Orbitron',monospace;font-size:clamp(2.2rem,5vw,4.2rem);font-weight:900;line-height:1.05;letter-spacing:3px;margin-bottom:14px;}
+.hl1{color:#ffffff;-webkit-text-fill-color:#ffffff;text-shadow:0 0 30px rgba(255,255,255,.15);}
+.hl2{background:linear-gradient(90deg,var(--orange),var(--orange3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 22px rgba(255,107,61,.6));}
+.hero p{color:#ff6b3d;font-size:1.2rem;letter-spacing:1px;margin-bottom:22px;}
+.pills{display:flex;justify-content:center;gap:24px;flex-wrap:wrap;margin-bottom:10px;}
+.pill{display:flex;align-items:center;gap:6px;font-size:1rem;letter-spacing:1.5px;color:#ff6b3d;}
+.pdot2{width:7px;height:7px;border-radius:50%;}
+
+.map-section{position:relative;z-index:2;max-width:1200px;margin:0 auto;padding:0 20px 50px;}
+.map-container{
+  position:relative;
+  background:#000000;
+  border:1px solid rgba(255,107,61,.2);border-radius:6px;
+  padding:24px 24px 16px;
+  box-shadow:0 0 80px rgba(255,107,61,.05),inset 0 0 80px rgba(0,0,0,.5);
+  overflow:hidden;
+}
+.corner{position:absolute;width:18px;height:18px;}
+.c-tl{top:7px;left:7px;border-top:2px solid var(--orange);border-left:2px solid var(--orange);}
+.c-tr{top:7px;right:7px;border-top:2px solid var(--orange3);border-right:2px solid var(--orange3);}
+.c-bl{bottom:7px;left:7px;border-bottom:2px solid var(--orange3);border-left:2px solid var(--orange3);}
+.c-br{bottom:7px;right:7px;border-bottom:2px solid var(--orange);border-right:2px solid var(--orange);}
+.map-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;}
+.map-title{font-family:'Orbitron',monospace;font-size:.9rem;letter-spacing:3px;color:#ffffff;text-transform:uppercase;display:flex;align-items:center;gap:8px;}
+.map-dot-pulse{width:8px;height:8px;border-radius:50%;background:#ffffff;box-shadow:0 0 8px #ffffff;animation:pdot 2s infinite;flex-shrink:0;}
+.map-meta{font-size:.88rem;letter-spacing:1px;color:#ffffff;}
+.map-meta strong{color:#ffffff;font-family:'Orbitron',monospace;font-size:.88rem;}
+#map-svg{width:100%;display:block;}
+
+.land{fill:#120800;stroke:rgba(255,107,61,.25);stroke-width:.4px;cursor:pointer;transition:fill .2s,stroke .2s;}
+.land:hover{fill:rgba(255,107,61,.18);stroke:var(--orange3);stroke-width:.8px;}
+.land.selected{fill:rgba(255,107,61,.22);stroke:var(--orange);stroke-width:1px;}
+.graticule{fill:none;stroke:rgba(255,107,61,.04);stroke-width:.3px;}
+.sphere{fill:rgba(0,0,0,.85);}
+.borders{fill:none;stroke:rgba(255,107,61,.07);stroke-width:.5px;}
+
+#map-loading{text-align:center;padding:60px 0;color:var(--muted);font-family:'Orbitron',monospace;font-size:.9rem;letter-spacing:3px;}
+
+#popup{
+  position:fixed;z-index:500;pointer-events:none;
+  transform:translate(-50%,-108%);opacity:0;transition:opacity .2s;min-width:230px;
+}
+#popup.on{pointer-events:all;opacity:1;}
+.pop-inner{
+  background:rgba(0,0,0,.97);border:1px solid rgba(255,107,61,.5);
+  clip-path:polygon(12px 0%,100% 0%,100% calc(100% - 12px),calc(100% - 12px) 100%,0% 100%,0% 12px);
+  box-shadow:0 0 40px rgba(255,107,61,.15),0 8px 40px rgba(0,0,0,.9);
+}
+.pop-bar{height:5px;background:linear-gradient(90deg,var(--orange4),var(--orange3));}
+.pop-body{padding:14px 18px;}
+.pop-name{font-family:'Orbitron',monospace;font-size:1.1rem;font-weight:700;color:#ffffff;margin-bottom:10px;letter-spacing:1px;}
+.pop-rows{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;}
+.pop-row{display:flex;justify-content:space-between;font-size:.92rem;letter-spacing:1px;}
+.pop-lbl{color:#ffffff;text-transform:uppercase;}
+.pop-val{font-family:'Orbitron',monospace;font-size:.85rem;color:#ffffff;}
+.pop-val.g{color:#ffffff;}
+.btn-conn{
+  width:100%;background:linear-gradient(90deg,var(--orange4),var(--orange2));
+  border:none;color:#ffffff;font-family:'Orbitron',monospace;
+  font-size:.9rem;font-weight:700;letter-spacing:3px;padding:11px;cursor:pointer;text-transform:uppercase;
+  clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);transition:all .25s;
+}
+.btn-conn:hover{filter:brightness(1.2);box-shadow:0 0 20px rgba(255,107,61,.5);}
+
+#modal{
+  position:fixed;inset:0;z-index:1000;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.8);backdrop-filter:blur(5px);
+  opacity:0;pointer-events:none;transition:opacity .35s;
+}
+#modal.on{opacity:1;pointer-events:all;}
+.modal-box{
+  background:#000000;border:1px solid var(--orange);max-width:400px;width:90%;
+  clip-path:polygon(14px 0%,100% 0%,100% calc(100% - 14px),calc(100% - 14px) 100%,0% 100%,0% 14px);
+  box-shadow:0 0 70px rgba(255,107,61,.25);
+  transform:translateY(24px);transition:transform .35s;
+}
+#modal.on .modal-box{transform:translateY(0);}
+.modal-top{
+  background:linear-gradient(90deg,rgba(255,107,61,.1),rgba(255,100,0,.06));
+  border-bottom:1px solid rgba(255,107,61,.15);padding:18px 22px;
+  display:flex;align-items:center;gap:14px;
+}
+.m-icon{
+  width:42px;height:42px;border-radius:50%;border:2px solid var(--orange);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.1rem;color:var(--orange);box-shadow:0 0 18px rgba(255,107,61,.4);
+  animation:pop-in .5s cubic-bezier(.34,1.56,.64,1) both;flex-shrink:0;
+}
+@keyframes pop-in{from{transform:scale(0) rotate(-180deg);opacity:0}to{transform:scale(1) rotate(0);opacity:1}}
+.m-title{font-family:'Orbitron',monospace;font-size:1.05rem;letter-spacing:2px;color:#ffffff;margin-bottom:3px;}
+.m-sub{font-size:.92rem;color:#ffffff;letter-spacing:1px;}
+.modal-body{padding:18px 22px;}
+.m-country{font-family:'Orbitron',monospace;font-size:1.5rem;font-weight:900;color:#fff;margin-bottom:14px;letter-spacing:2px;}
+.prog{height:3px;background:rgba(255,107,61,.1);border-radius:2px;overflow:hidden;margin-bottom:16px;}
+.prog-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--orange4),var(--orange3));animation:pfill 1.4s ease-out forwards;box-shadow:0 0 8px var(--orange);}
+@keyframes pfill{to{width:100%}}
+.m-details{display:flex;flex-direction:column;gap:7px;background:rgba(255,107,61,.03);border:1px solid rgba(255,107,61,.1);padding:11px 14px;margin-bottom:16px;}
+.m-row{display:flex;justify-content:space-between;font-size:.92rem;letter-spacing:1px;}
+.m-lbl{color:#ffffff;text-transform:uppercase;}
+.m-val{font-family:'Orbitron',monospace;font-size:.88rem;}
+.m-val.g{color:var(--orange);}
+.m-val.b{color:var(--orange3);}
+.btn-close{
+  width:100%;background:transparent;border:1px solid var(--orange);color:#ffffff;
+  font-family:'Orbitron',monospace;font-size:.9rem;letter-spacing:3px;
+  padding:9px;cursor:pointer;text-transform:uppercase;
+  clip-path:polygon(7px 0%,100% 0%,calc(100% - 7px) 100%,0% 100%);transition:all .25s;
+}
+.btn-close:hover{background:var(--orange);color:#000;}
+
+.features{
+  position:relative;z-index:2;max-width:1200px;margin:0 auto;
+  padding:10px 20px 70px;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;
+}
+.feat{
+  border:1px solid rgba(255,107,61,.12);padding:22px;background:rgba(0,0,0,.85);
+  clip-path:polygon(10px 0%,100% 0%,100% calc(100% - 10px),calc(100% - 10px) 100%,0% 100%,0% 10px);
+  transition:all .3s;position:relative;overflow:hidden;
+}
+.feat::after{content:'';position:absolute;top:0;left:0;width:2px;height:0%;background:linear-gradient(180deg,var(--orange),var(--orange3));transition:height .3s;}
+.feat:hover{border-color:rgba(255,107,61,.3);transform:translateY(-3px);}
+.feat:hover::after{height:100%;}
+.feat-ico{font-size:2rem;margin-bottom:10px;}
+.feat-t{font-family:'Orbitron',monospace;font-size:1rem;letter-spacing:2px;color:#ffffff;margin-bottom:6px;}
+.feat-d{font-size:1rem;color:#ff6b3d;line-height:1.6;}
+
+footer{
+  position:relative;z-index:2;border-top:1px solid rgba(255,107,61,.1);padding:24px 40px;
+  display:flex;justify-content:space-between;align-items:center;
+  color:#ffffff;font-size:.92rem;letter-spacing:1px;flex-wrap:wrap;gap:10px;
+}
+.f-live{font-family:'Orbitron',monospace;font-size:.85rem;letter-spacing:2px;color:#ffffff;display:flex;align-items:center;gap:7px;}
+.f-dot{width:7px;height:7px;border-radius:50%;background:#ffffff;box-shadow:0 0 8px #ffffff;animation:pdot 2s infinite;flex-shrink:0;}
+@media(max-width:600px){header{padding:14px 18px;}footer{padding:20px 18px;flex-direction:column;text-align:center;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-text">NEXVPN</span>
+    <span class="logo-emoji">🍊</span>
+  </div>
+  <div class="hstatus"><div class="hsdot"></div> Sistema Seguro</div>
+</header>
+
+<section class="hero">
+  <div class="hero-badge">● Proteção Global Ativa</div>
+  <div class="hero-badge" style="margin-top:10px;">🍊 VPN Feita Para Laranjas E Etc.</div>
+  <h1><div class="hl1">CONEXÃO</div><div class="hl2">BLINDADA</div></h1>
+  <p>Selecione um país no mapa e conecte-se com um clique</p>
+  <div class="pills">
+    <div class="pill"><div class="pdot2" style="background:var(--orange);box-shadow:0 0 6px var(--orange)"></div>89 Servidores Ativos</div>
+    <div class="pill"><div class="pdot2" style="background:var(--orange3);box-shadow:0 0 6px var(--orange3)"></div>Criptografia AES-256</div>
+    <div class="pill"><div class="pdot2" style="background:var(--orange4);box-shadow:0 0 6px var(--orange4)"></div>Zero Logs</div>
+  </div>
+</section>
+
+<section class="map-section">
+  <div class="map-container" id="mapWrap">
+    <div class="corner c-tl"></div><div class="corner c-tr"></div>
+    <div class="corner c-bl"></div><div class="corner c-br"></div>
+    <div class="map-hdr">
+      <div class="map-title"><div class="map-dot-pulse"></div> Mapa de Servidores Globais</div>
+      <div class="map-meta">Servidores: <strong>89</strong> &nbsp;|&nbsp; Países: <strong>65</strong> &nbsp;|&nbsp; Online: <strong>98.7%</strong></div>
+    </div>
+    <svg id="map-svg"></svg>
+    <div id="map-loading">CARREGANDO MAPA...</div>
+  </div>
+</section>
+
+<section class="features">
+  <div class="feat"><div class="feat-ico">🔒</div><div class="feat-t">AES-256</div><div class="feat-d">Criptografia militar em todas as conexões. Seus dados são invisíveis.</div></div>
+  <div class="feat"><div class="feat-ico">⚡</div><div class="feat-t">Alta Velocidade</div><div class="feat-d">Servidores de 10Gbps em 65+ países. Streaming 4K sem lag.</div></div>
+  <div class="feat"><div class="feat-ico">🌍</div><div class="feat-t">89 Servidores</div><div class="feat-d">Cobertura global com múltiplos servidores por país.</div></div>
+  <div class="feat"><div class="feat-ico">🛡️</div><div class="feat-t">Kill Switch</div><div class="feat-d">Se a VPN cair, sua internet para. Proteção total sem brechas.</div></div>
+</section>
+
+<footer>
+  <div>© 2026 NexVPN 🍊 — Todos os direitos reservados</div>
+  <div class="f-live"><div class="f-dot"></div> Sistema Online</div>
+  <div>Privacidade · Termos · Contato</div>
+</footer>
+
+<div id="popup">
+  <div class="pop-inner">
+    <div class="pop-bar"></div>
+    <div class="pop-body">
+      <div class="pop-name" id="pop-name">País</div>
+      <div class="pop-rows">
+        <div class="pop-row"><span class="pop-lbl">Latência</span><span class="pop-val g" id="pop-ping">—</span></div>
+        <div class="pop-row"><span class="pop-lbl">Servidores</span><span class="pop-val" id="pop-srv">—</span></div>
+        <div class="pop-row"><span class="pop-lbl">Status</span><span class="pop-val g">● Online</span></div>
+        <div class="pop-row"><span class="pop-lbl">Protocolo</span><span class="pop-val">WireGuard</span></div>
+      </div>
+      <button class="btn-conn" id="btn-conn">▶ CONECTAR</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal">
+  <div class="modal-box">
+    <div class="modal-top">
+      <div class="m-icon">✓</div>
+      <div><div class="m-title">Conexão Estabelecida</div><div class="m-sub">Você está protegido e anônimo</div></div>
+    </div>
+    <div class="modal-body">
+      <div class="m-country" id="m-country">Brasil</div>
+      <div class="prog"><div class="prog-fill" id="prog-fill"></div></div>
+      <div class="m-details">
+        <div class="m-row"><span class="m-lbl">IP Virtual</span><span class="m-val b" id="m-ip">—</span></div>
+        <div class="m-row"><span class="m-lbl">Criptografia</span><span class="m-val g">AES-256-GCM ✓</span></div>
+        <div class="m-row"><span class="m-lbl">Protocolo</span><span class="m-val g">WireGuard ✓</span></div>
+        <div class="m-row"><span class="m-lbl">Kill Switch</span><span class="m-val g">Ativo ✓</span></div>
+        <div class="m-row"><span class="m-lbl">Vazamento DNS</span><span class="m-val g">Nenhum ✓</span></div>
+      </div>
+      <button class="btn-close" id="btn-close">✕ FECHAR</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var currentCountry = '';
+
+var nameMap = {
+  4:'Afeganistão',8:'Albânia',12:'Argélia',24:'Angola',32:'Argentina',
+  36:'Austrália',40:'Áustria',50:'Bangladesh',56:'Bélgica',68:'Bolívia',
+  76:'Brasil',100:'Bulgária',116:'Camboja',120:'Camarões',124:'Canadá',
+  144:'Sri Lanka',152:'Chile',156:'China',170:'Colômbia',191:'Croácia',
+  192:'Cuba',196:'Chipre',203:'Rep. Tcheca',208:'Dinamarca',218:'Equador',
+  818:'Egito',233:'Estônia',246:'Finlândia',250:'França',276:'Alemanha',
+  288:'Gana',300:'Grécia',320:'Guatemala',340:'Honduras',348:'Hungria',
+  356:'Índia',360:'Indonésia',364:'Irã',368:'Iraque',372:'Irlanda',
+  376:'Israel',380:'Itália',388:'Jamaica',392:'Japão',400:'Jordânia',
+  398:'Cazaquistão',404:'Quênia',410:'Coreia do Sul',408:'Coreia do Norte',
+  414:'Kuwait',418:'Laos',422:'Líbano',428:'Letônia',440:'Lituânia',
+  458:'Malásia',484:'México',504:'Marrocos',528:'Holanda',
+  554:'Nova Zelândia',566:'Nigéria',578:'Noruega',512:'Omã',
+  586:'Paquistão',591:'Panamá',600:'Paraguai',604:'Peru',
+  608:'Filipinas',616:'Polônia',620:'Portugal',634:'Catar',
+  642:'Romênia',643:'Rússia',682:'Arábia Saudita',703:'Eslováquia',
+  705:'Eslovênia',706:'Somália',710:'África do Sul',724:'Espanha',
+  752:'Suécia',756:'Suíça',764:'Tailândia',792:'Turquia',
+  804:'Ucrânia',784:'Emirados Árabes',826:'Reino Unido',
+  840:'Estados Unidos',858:'Uruguai',862:'Venezuela',704:'Vietnã',
+  887:'Iêmen',894:'Zâmbia',716:'Zimbábue',496:'Mongólia',
+  516:'Namíbia',508:'Moçambique',800:'Uganda',834:'Tanzânia',
+  729:'Sudão',788:'Tunísia',51:'Armênia',31:'Azerbaijão',
+  268:'Geórgia',498:'Moldávia',795:'Turcomenistão',762:'Tajiquistão',
+  860:'Uzbequistão',417:'Quirguistão',232:'Eritreia',231:'Etiópia',
+  180:'R.D. Congo',178:'Congo',140:'Rep. Centro-Africana',
+  686:'Senegal',324:'Guiné',466:'Mali',562:'Níger',854:'Burkina Faso',
+  204:'Benin',768:'Togo',384:'Costa do Marfim',430:'Libéria',
+  70:'Bósnia',807:'Macedônia',688:'Sérvia',499:'Montenegro',
+  104:'Myanmar',646:'Ruanda',108:'Burundi',262:'Djibuti',
+  332:'Haiti',558:'Nicarágua',222:'El Salvador',188:'Costa Rica'
+};
+
+var serverNodes = [
+  [-73.9,40.7,0],[-87.6,41.8,.3],[-118.2,34.0,.6],
+  [-43.1,-22.9,.9],[-3.7,40.4,1.2],[2.35,48.85,1.5],
+  [13.4,52.5,1.8],[12.5,41.9,2.1],[37.6,55.7,.4],
+  [28.9,41.0,.7],[72.8,18.9,1.0],[116.4,39.9,1.3],
+  [139.7,35.7,1.6],[151.2,-33.8,1.9],[18.4,-33.9,2.2],
+  [31.2,30.0,.5],[103.8,1.35,.8],[-0.12,51.5,1.1],
+  [174.7,-36.8,1.4],[-99.1,19.4,1.7],[55.3,25.2,2.0],
+  [121.5,31.2,2.3],[77.2,28.6,.2],[127.0,37.5,.8]
+];
+
+function initMap() {
+  var wrap = document.getElementById('mapWrap');
+  var W = wrap.clientWidth - 48;
+  var H = Math.round(W * 0.52);
+
+  var svg = d3.select('#map-svg')
+    .attr('viewBox', '0 0 ' + W + ' ' + H)
+    .attr('preserveAspectRatio', 'xMidYMid meet');
+
+  var proj = d3.geoNaturalEarth1()
+    .scale(W / 6.28)
+    .translate([W / 2, H / 2]);
+
+  var geoPath = d3.geoPath().projection(proj);
+
+  var defs = svg.append('defs');
+  var flt = defs.append('filter').attr('id','glow')
+    .attr('x','-40%').attr('y','-40%').attr('width','180%').attr('height','180%');
+  flt.append('feGaussianBlur').attr('in','SourceGraphic').attr('stdDeviation','3').attr('result','blur');
+  var fm = flt.append('feMerge');
+  fm.append('feMergeNode').attr('in','blur');
+  fm.append('feMergeNode').attr('in','SourceGraphic');
+
+  svg.append('path').datum({type:'Sphere'}).attr('class','sphere').attr('d',geoPath);
+  svg.append('path').datum(d3.geoGraticule()()).attr('class','graticule').attr('d',geoPath);
+
+  d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(function(world) {
+    document.getElementById('map-loading').style.display = 'none';
+
+    var countries = topojson.feature(world, world.objects.countries);
+
+    svg.selectAll('.land')
+      .data(countries.features.filter(function(d){ return !!nameMap[+d.id]; }))
+      .enter().append('path')
+      .attr('class','land')
+      .attr('d', geoPath)
+      .on('click', function(event, d) {
+        svg.selectAll('.land').classed('selected', false);
+        d3.select(this).classed('selected', true);
+        var id = +d.id;
+        var name = nameMap[id];
+        if (!name) return;
+        currentCountry = name;
+        document.getElementById('pop-name').textContent = name;
+        document.getElementById('pop-ping').textContent = (Math.floor(Math.random()*80)+5) + ' ms';
+        document.getElementById('pop-srv').textContent = (Math.floor(Math.random()*14)+1) + ' servidores';
+        var popup = document.getElementById('popup');
+        popup.style.left = event.clientX + 'px';
+        popup.style.top = event.clientY + 'px';
+        popup.classList.add('on');
+        event.stopPropagation();
+      });
+
+    svg.append('path')
+      .datum(topojson.mesh(world, world.objects.countries, function(a,b){ return a !== b; }))
+      .attr('class','borders')
+      .attr('d', geoPath);
+
+    var nodesG = svg.append('g');
+    serverNodes.forEach(function(node) {
+      var lon = node[0], lat = node[1], delay = node[2];
+      var coords = proj([lon, lat]);
+      if (!coords) return;
+      var x = coords[0], y = coords[1];
+      if (x < 0 || y < 0 || x > W || y > H) return;
+      var g = nodesG.append('g');
+
+      var ring = g.append('circle')
+        .attr('cx', x).attr('cy', y).attr('r', 3)
+        .attr('fill', 'none')
+        .attr('stroke', '#ff6b3d')
+        .attr('stroke-width', 1)
+        .attr('opacity', 0);
+
+      function pulseRing() {
+        ring.attr('r', 3).attr('opacity', 0.8)
+          .transition().duration(2000).ease(d3.easeLinear)
+          .attr('r', 14).attr('opacity', 0)
+          .on('end', pulseRing);
+      }
+      setTimeout(pulseRing, delay * 1000);
+
+      g.append('circle')
+        .attr('cx', x).attr('cy', y).attr('r', 2.5)
+        .attr('fill', '#ff6b3d')
+        .attr('opacity', 0.9)
+        .attr('filter', 'url(#glow)');
+    });
+
+  }).catch(function() {
+    document.getElementById('map-loading').textContent = 'Erro ao carregar o mapa.';
+  });
+}
+
+window.addEventListener('load', initMap);
+
+document.addEventListener('click', function(e) {
+  var popup = document.getElementById('popup');
+  if (!popup.contains(e.target) && !e.target.closest('.land')) {
+    popup.classList.remove('on');
+  }
+});
+
+document.getElementById('btn-conn').addEventListener('click', function() {
+  document.getElementById('popup').classList.remove('on');
+  document.getElementById('m-country').textContent = currentCountry;
+  function r(){ return Math.floor(Math.random()*220+10); }
+  document.getElementById('m-ip').textContent = r()+'.'+r()+'.'+r()+'.'+r();
+  var pf = document.getElementById('prog-fill');
+  pf.style.animation = 'none';
+  pf.offsetHeight;
+  pf.style.animation = '';
+  document.getElementById('modal').classList.add('on');
+});
+
+document.getElementById('btn-close').addEventListener('click', function() {
+  document.getElementById('modal').classList.remove('on');
+  d3.selectAll('.land').classed('selected', false);
+});
+
+document.getElementById('modal').addEventListener('click', function(e) {
+  if (e.target.id === 'modal') document.getElementById('modal').classList.remove('on');
+});
+</script>
+</body>
+</html>
